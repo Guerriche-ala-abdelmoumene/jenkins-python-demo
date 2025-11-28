@@ -2,40 +2,43 @@ pipeline {
     agent any
 
     stages {
-        // مرحلة التحضير (Build/Install)
+        // مرحلة التحضير وإنشاء البيئة الوهمية
         stage('Build & Install') {
             steps {
-                echo 'Building...'
-                // نستخدم 'bat' بدلاً من 'sh' لأننا على Windows
-                bat 'pip install -r requirements.txt'
+                echo 'Building and creating Virtual Environment...'
+                // 1. إنشاء بيئة وهمية باسم venv
+                bat 'python -m venv venv'
+                
+                // 2. تحديث pip داخل البيئة الوهمية
+                bat 'venv\\Scripts\\python.exe -m pip install --upgrade pip'
+                
+                // 3. تثبيت المتطلبات داخل البيئة الوهمية
+                bat 'venv\\Scripts\\pip.exe install -r requirements.txt'
             }
         }
 
-        // مرحلة الاختبار (Test) وتوليد التقارير
+        // مرحلة الاختبار
         stage('Test') {
             steps {
                 echo 'Testing...'
-                // تشغيل الاختبارات وحفظ النتائج
-                bat 'pytest --junitxml=test-results.xml'
+                // نستخدم pytest الموجود داخل البيئة الوهمية
+                bat 'venv\\Scripts\\pytest.exe --junitxml=test-results.xml'
             }
         }
 
-        // مرحلة التشغيل وتسجيل اللوج (Log)
+        // مرحلة التشغيل
         stage('Run & Log') {
             steps {
-                // تشغيل التطبيق وحفظ المخرجات
-                bat 'python app.py > application.log'
+                // تشغيل التطبيق باستخدام بايثون الموجود في البيئة الوهمية
+                bat 'venv\\Scripts\\python.exe app.py > application.log'
             }
         }
     }
 
-    // مرحلة ما بعد البناء
+    // إجراءات ما بعد البناء
     post {
         always {
-            // نشر نتائج الاختبار
             junit 'test-results.xml'
-            
-            // حفظ ملفات اللوج
             archiveArtifacts artifacts: 'application.log', allowEmptyArchive: true
         }
         success {
